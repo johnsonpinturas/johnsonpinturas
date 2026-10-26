@@ -21,7 +21,7 @@
   $('#menuBtn').addEventListener('click',()=>$('#sidebar').classList.toggle('open'));
   $('#todayLabel').textContent=new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
   function renderDashboard(){
-    $('#kTotal').textContent=services.length;$('#kAndamento').textContent=services.filter(x=>x.status==='Em andamento').length;$('#kAguardando').textContent=services.filter(x=>x.status==='Aguardando retorno').length;$('#kValor').textContent=money(services.reduce((a,x)=>a+Number(x.valor||0),0));
+    $('#kTotal').textContent=services.length;$('#kAndamento').textContent=services.filter(x=>x.status==='Em andamento').length;$('#kAguardando').textContent=services.filter(x=>x.status==='Aguardando retorno').length;
     $('#kValorAndamento').textContent=money(services.filter(x=>x.status==='Em andamento').reduce((a,x)=>a+Number(x.valor||0),0));
     $('#kValorFinalizado').textContent=money(services.filter(x=>x.status==='Finalizado').reduce((a,x)=>a+Number(x.valor||0),0));
     const statuses=[['Aguardando retorno','#eab308'],['Em andamento','#3b82f6'],['Concluído','#22c55e'],['Finalizado','#8b5cf6']],max=Math.max(services.length,1);
