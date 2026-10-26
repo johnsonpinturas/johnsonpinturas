@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const path = require('path');
 const { Pool } = require('pg');
+const ExcelJS = require('exceljs');
 
 if (!process.env.DATABASE_URL) {
   console.error('DATABASE_URL nao configurada.');
@@ -21,6 +22,30 @@ app.put('/api/clientes/:id', asyncRoute(async (req,res)=>{const b=req.body,missi
 app.delete('/api/clientes/:id', asyncRoute(async (req,res)=>{const r=await pool.query('DELETE FROM clientes WHERE id=$1',[req.params.id]);if(!r.rowCount)return res.status(404).json({error:'Cliente nao encontrado'});res.status(204).end();}));
 
 app.get('/api/servicos', asyncRoute(async (req,res)=>{const {rows}=await pool.query(`SELECT id,cliente_id,nome_cliente AS cliente,telefone,endereco,tipo_imovel AS imovel,tipo_servico AS tipo,data_inicio AS inicio,data_conclusao_prevista AS fim,valor_total AS valor,status,orcamento,observacoes AS obs,criado_em FROM servicos ORDER BY criado_em DESC`);res.json(rows);}));
+app.get('/api/servicos/exportar.xlsx', asyncRoute(async (req,res)=>{
+  const params=[]; const where=[];
+  if(req.query.status){params.push(req.query.status);where.push(`status = $${params.length}`);}
+  if(req.query.q){params.push(`%${req.query.q}%`);where.push(`(nome_cliente ILIKE $${params.length} OR tipo_servico ILIKE $${params.length} OR endereco ILIKE $${params.length})`);}
+  const sql=`SELECT id,nome_cliente,telefone,endereco,tipo_imovel,tipo_servico,data_inicio,data_conclusao_prevista,valor_total,status,orcamento,observacoes,criado_em FROM servicos ${where.length?'WHERE '+where.join(' AND '):''} ORDER BY criado_em DESC`;
+  const {rows}=await pool.query(sql,params);
+  const workbook=new ExcelJS.Workbook(); workbook.creator='Johnson Pintura'; workbook.created=new Date();
+  const sheet=workbook.addWorksheet('Serviços',{views:[{state:'frozen',ySplit:1}]});
+  sheet.columns=[
+    {header:'Código',key:'id',width:12},{header:'Cliente',key:'nome_cliente',width:28},{header:'Telefone',key:'telefone',width:18},
+    {header:'Endereço',key:'endereco',width:38},{header:'Tipo de imóvel',key:'tipo_imovel',width:20},{header:'Tipo de serviço',key:'tipo_servico',width:24},
+    {header:'Data de início',key:'data_inicio',width:17},{header:'Conclusão prevista',key:'data_conclusao_prevista',width:20},
+    {header:'Valor total',key:'valor_total',width:16},{header:'Status',key:'status',width:22},{header:'Orçamento',key:'orcamento',width:35},
+    {header:'Observações',key:'observacoes',width:35},{header:'Cadastrado em',key:'criado_em',width:20}
+  ];
+  rows.forEach(r=>sheet.addRow({...r,valor_total:Number(r.valor_total),data_inicio:r.data_inicio?new Date(r.data_inicio):null,data_conclusao_prevista:r.data_conclusao_prevista?new Date(r.data_conclusao_prevista):null,criado_em:r.criado_em?new Date(r.criado_em):null}));
+  const header=sheet.getRow(1);header.font={bold:true,color:{argb:'FFFFFFFF'}};header.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF17253A'}};header.alignment={vertical:'middle',horizontal:'center'};header.height=24;
+  sheet.autoFilter={from:'A1',to:'M1'};sheet.getColumn('valor_total').numFmt='R$ #,##0.00';
+  ['data_inicio','data_conclusao_prevista'].forEach(c=>sheet.getColumn(c).numFmt='dd/mm/yyyy');sheet.getColumn('criado_em').numFmt='dd/mm/yyyy hh:mm';
+  sheet.eachRow((row,n)=>{if(n>1){row.alignment={vertical:'top',wrapText:true};if(n%2===0)row.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFF4F6F9'}};}});
+  const filename=`servicos-johnson-pintura-${new Date().toISOString().slice(0,10)}.xlsx`;
+  res.setHeader('Content-Type','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');res.setHeader('Content-Disposition',`attachment; filename="${filename}"`);
+  await workbook.xlsx.write(res);res.end();
+}));
 async function saveService(req,res,update=false){const b=req.body,missing=required(b,['cliente','endereco','imovel','tipo','valor','status']);if(missing.length)return res.status(400).json({error:'Campos obrigatorios: '+missing.join(', ')});let clienteId=null;const found=await pool.query('SELECT id FROM clientes WHERE LOWER(nome)=LOWER($1) LIMIT 1',[b.cliente]);if(found.rows[0])clienteId=found.rows[0].id;else{const c=await pool.query(`INSERT INTO clientes(nome,telefone,endereco,tipo_cliente) VALUES($1,$2,$3,'Pessoa física') RETURNING id`,[b.cliente,b.telefone||null,b.endereco]);clienteId=c.rows[0].id;}
 const vals=[clienteId,b.cliente,b.telefone||null,b.endereco,b.imovel,b.tipo,b.inicio||null,b.fim||null,Number(b.valor),b.status,b.orcamento||null,b.obs||null];
 if(update){vals.push(req.params.id);const r=await pool.query(`UPDATE servicos SET cliente_id=$1,nome_cliente=$2,telefone=$3,endereco=$4,tipo_imovel=$5,tipo_servico=$6,data_inicio=$7,data_conclusao_prevista=$8,valor_total=$9,status=$10,orcamento=$11,observacoes=$12,atualizado_em=NOW() WHERE id=$13`,vals);if(!r.rowCount)return res.status(404).json({error:'Servico nao encontrado'});return res.json({ok:true});}
