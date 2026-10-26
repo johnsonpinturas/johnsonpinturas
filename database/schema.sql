@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS servicos (
   data_inicio DATE,
   data_conclusao_prevista DATE,
   valor_total NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (valor_total >= 0),
-  status VARCHAR(50) NOT NULL CHECK (status IN ('Aguardando retorno','Em andamento','Concluído','Finalizado')),
+  status VARCHAR(50) NOT NULL CHECK (status IN ('Aguardando retorno','Em andamento','Finalizado')),
   orcamento TEXT,
   observacoes TEXT,
   criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
