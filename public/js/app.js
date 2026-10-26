@@ -22,6 +22,8 @@
   $('#todayLabel').textContent=new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
   function renderDashboard(){
     $('#kTotal').textContent=services.length;$('#kAndamento').textContent=services.filter(x=>x.status==='Em andamento').length;$('#kAguardando').textContent=services.filter(x=>x.status==='Aguardando retorno').length;$('#kValor').textContent=money(services.reduce((a,x)=>a+Number(x.valor||0),0));
+    $('#kValorAndamento').textContent=money(services.filter(x=>x.status==='Em andamento').reduce((a,x)=>a+Number(x.valor||0),0));
+    $('#kValorFinalizado').textContent=money(services.filter(x=>x.status==='Finalizado').reduce((a,x)=>a+Number(x.valor||0),0));
     const statuses=[['Aguardando retorno','#eab308'],['Em andamento','#3b82f6'],['Concluído','#22c55e'],['Finalizado','#8b5cf6']],max=Math.max(services.length,1);
     $('#statusBars').innerHTML=statuses.map(([s,c])=>{const n=services.filter(x=>x.status===s).length;return `<div class="status-row"><span>${s}</span><div class="bar"><span style="width:${n/max*100}%;background:${c}"></span></div><b>${n}</b></div>`}).join('');
     const upcoming=[...services].filter(x=>x.inicio).sort((a,b)=>String(a.inicio).localeCompare(String(b.inicio))).slice(0,4);$('#upcoming').innerHTML=upcoming.length?upcoming.map(x=>`<div class="up-item"><strong>${safe(x.cliente)}</strong><span>${dateBR(x.inicio)} • ${safe(x.tipo)}</span></div>`).join(''):'<div class="blank-panel">Nenhum serviço agendado.</div>';
