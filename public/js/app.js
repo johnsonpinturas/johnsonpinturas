@@ -35,6 +35,7 @@
   function renderAll(){renderDashboard();renderClients();renderServices();renderAgenda();renderFinance()}
   async function loadAll(){try{[clients,services]=await Promise.all([request('/clientes'),request('/servicos')]);renderAll()}catch(e){toast('Falha ao carregar: '+e.message)}}
   $('#clientSearch').addEventListener('input',renderClients);$('#serviceSearch').addEventListener('input',renderServices);$('#statusFilter').addEventListener('change',renderServices);
+  $('#exportExcel').addEventListener('click',()=>{const q=$('#serviceSearch').value.trim(),status=$('#statusFilter').value;const params=new URLSearchParams();if(q)params.set('q',q);if(status)params.set('status',status);window.location.href='/api/servicos/exportar.xlsx'+(params.toString()?'?'+params.toString():'');});
   function newService(){ $('#serviceForm').reset();$('#serviceId').value='';$('#serviceModalTitle').textContent='Novo Serviço';openModal('serviceModal') }
   $('#quickAdd').addEventListener('click',newService);$$('.add-service').forEach(b=>b.addEventListener('click',newService));
   $('#addClient').addEventListener('click',()=>{$('#clientForm').reset();$('#clientId').value='';$('#clientModalTitle').textContent='Novo Cliente';openModal('clientModal')});
