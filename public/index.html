@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PinturaPro | Gestão de Serviços</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar" id="sidebar">
+    <div class="brand"><div class="brand-icon">🎨</div><div><h1>PinturaPro</h1><small>Gestão de Serviços</small></div></div>
+    <nav class="nav">
+      <button class="active" data-page="dashboard">▦ Visão Geral</button>
+      <button data-page="clientes">👤 Clientes</button>
+      <button data-page="servicos">🖌️ Serviços</button>
+      <button data-page="agenda">📅 Agenda</button>
+      <button data-page="financeiro">💰 Financeiro</button>
+    </nav>
+    <div class="side-footer">Protótipo funcional • Dados locais</div>
+  </aside>
+  <main>
+    <header class="topbar"><div style="display:flex;align-items:center;gap:10px"><button class="btn btn-secondary menu-btn" id="menuBtn">☰</button><h2 id="topTitle">Visão Geral</h2></div><div class="top-actions"><button class="btn btn-primary" id="quickAdd">＋ Novo Serviço</button></div></header>
+    <div class="content">
+      <section class="page active" id="page-dashboard">
+        <div class="page-head"><div><h3>Painel de Controle</h3><p>Acompanhe seus serviços e valores em um só lugar.</p></div><span id="todayLabel"></span></div>
+        <div class="cards">
+          <div class="card kpi"><span class="label">Total de serviços</span><strong id="kTotal">0</strong><small>Registros cadastrados</small><div class="ico">🖌️</div></div>
+          <div class="card kpi"><span class="label">Em andamento</span><strong id="kAndamento">0</strong><small>Obras em execução</small><div class="ico">🔵</div></div>
+          <div class="card kpi"><span class="label">Aguardando retorno</span><strong id="kAguardando">0</strong><small>Clientes a contatar</small><div class="ico">🟡</div></div>
+          <div class="card kpi"><span class="label">Valor contratado</span><strong id="kValor">R$ 0</strong><small>Soma dos serviços</small><div class="ico">💰</div></div>
+        </div>
+        <div class="grid-2">
+          <div class="card panel"><h4>Distribuição dos serviços</h4><div class="status-list" id="statusBars"></div></div>
+          <div class="card panel"><h4>Próximos serviços</h4><div class="upcoming" id="upcoming"></div></div>
+        </div>
+      </section>
+      <section class="page" id="page-clientes">
+        <div class="page-head"><div><h3>Clientes</h3><p>Cadastro e consulta de clientes.</p></div><button class="btn btn-primary" id="addClient">＋ Novo Cliente</button></div>
+        <div class="toolbar"><input id="clientSearch" placeholder="Pesquisar por nome, telefone ou endereço..."></div>
+        <div class="card table-card table-wrap"><table class="data-table"><thead><tr><th>Cliente</th><th>Telefone</th><th>Endereço</th><th>Tipo</th><th>Serviços</th><th>Ações</th></tr></thead><tbody id="clientRows"></tbody></table></div>
+      </section>
+      <section class="page" id="page-servicos">
+        <div class="page-head"><div><h3>Serviços</h3><p>Controle completo das obras.</p></div><button class="btn btn-primary add-service">＋ Novo Serviço</button></div>
+        <div class="toolbar"><input id="serviceSearch" placeholder="Pesquisar cliente, serviço ou endereço..."><select id="statusFilter"><option value="">Todos os status</option><option>Aguardando retorno</option><option>Em andamento</option><option>Concluído</option><option>Finalizado</option></select></div>
+        <div class="card table-card table-wrap"><table class="data-table"><thead><tr><th>#</th><th>Cliente / Serviço</th><th>Imóvel</th><th>Início</th><th>Status</th><th>Valor</th><th>Ações</th></tr></thead><tbody id="serviceRows"></tbody></table></div>
+      </section>
+      <section class="page" id="page-agenda"><div class="page-head"><div><h3>Agenda</h3><p>Serviços organizados por data de início.</p></div></div><div class="card table-card table-wrap"><table class="data-table"><thead><tr><th>Data</th><th>Cliente</th><th>Serviço</th><th>Endereço</th><th>Status</th></tr></thead><tbody id="agendaRows"></tbody></table></div></section>
+      <section class="page" id="page-financeiro"><div class="page-head"><div><h3>Financeiro</h3><p>Resumo dos valores das obras cadastradas.</p></div></div><div class="cards"><div class="card kpi"><span class="label">Total orçado</span><strong id="fTotal">R$ 0</strong><div class="ico">💵</div></div><div class="card kpi"><span class="label">Em execução</span><strong id="fExecucao">R$ 0</strong><div class="ico">📈</div></div><div class="card kpi"><span class="label">Concluído/finalizado</span><strong id="fConcluido">R$ 0</strong><div class="ico">✅</div></div></div></section>
+    </div>
+  </main>
+</div>
+
+<div class="modal-backdrop" id="serviceModal"><div class="modal"><div class="modal-head"><h3 id="serviceModalTitle">Novo Serviço</h3><button class="close" data-close="serviceModal">✕</button></div><form class="form" id="serviceForm"><input type="hidden" id="serviceId"><div class="form-grid">
+  <div class="field"><label>Nome do cliente *</label><input id="sCliente" required></div><div class="field"><label>Telefone</label><input id="sTelefone" placeholder="(00) 00000-0000"></div>
+  <div class="field full"><label>Endereço *</label><input id="sEndereco" required></div><div class="field"><label>Tipo de imóvel *</label><select id="sImovel" required><option value="">Selecione</option><option>Residencial</option><option>Apartamento</option><option>Comércio</option><option>Escritório</option><option>Condomínio</option><option>Outro</option></select></div>
+  <div class="field"><label>Tipo de serviço *</label><select id="sTipo" required><option value="">Selecione</option><option>Pintura interna</option><option>Pintura externa</option><option>Pintura de fachada</option><option>Pintura de portas e janelas</option><option>Textura / Grafiato</option><option>Massa corrida</option><option>Outro</option></select></div>
+  <div class="field"><label>Data prevista de início</label><input type="date" id="sInicio"></div><div class="field"><label>Data prevista de conclusão</label><input type="date" id="sFim"></div>
+  <div class="field"><label>Valor total da obra (R$) *</label><input type="number" min="0" step="0.01" id="sValor" required></div><div class="field"><label>Status *</label><select id="sStatus" required><option>Aguardando retorno</option><option>Em andamento</option><option>Concluído</option><option>Finalizado</option></select></div>
+  <div class="field full"><label>Orçamento / descrição do serviço</label><textarea id="sOrcamento" placeholder="Materiais, ambientes, mão de obra e condições..."></textarea></div><div class="field full"><label>Observações</label><textarea id="sObs"></textarea></div>
+</div><div class="form-actions"><button type="button" class="btn btn-secondary" data-close="serviceModal">Cancelar</button><button class="btn btn-primary" type="submit">Salvar serviço</button></div></form></div></div>
+
+<div class="modal-backdrop" id="clientModal"><div class="modal" style="max-width:680px"><div class="modal-head"><h3 id="clientModalTitle">Novo Cliente</h3><button class="close" data-close="clientModal">✕</button></div><form class="form" id="clientForm"><input type="hidden" id="clientId"><div class="form-grid">
+  <div class="field"><label>Nome do cliente *</label><input id="cNome" required></div><div class="field"><label>Telefone *</label><input id="cTelefone" required></div><div class="field full"><label>Endereço *</label><input id="cEndereco" required></div><div class="field"><label>Tipo de cliente</label><select id="cTipo"><option>Pessoa física</option><option>Empresa</option><option>Condomínio</option><option>Imobiliária</option></select></div><div class="field"><label>E-mail</label><input type="email" id="cEmail"></div><div class="field full"><label>Observações</label><textarea id="cObs"></textarea></div>
+</div><div class="form-actions"><button type="button" class="btn btn-secondary" data-close="clientModal">Cancelar</button><button class="btn btn-primary" type="submit">Salvar cliente</button></div></form></div></div>
+<div class="toast" id="toast"></div>
+<script src="js/app.js"></script>
+</body>
+</html>
