@@ -14,7 +14,7 @@
   }
   function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500)}
   function openModal(id){$('#'+id).classList.add('open')} function closeModal(id){$('#'+id).classList.remove('open')}
-  function go(page,title){$$('.page').forEach(x=>x.classList.remove('active'));$('#page-'+page).classList.add('active');$$('.nav button').forEach(x=>x.classList.toggle('active',x.dataset.page===page));$('#topTitle').textContent=title;$('#quickAdd').style.display=page==='servicos'?'inline-flex':'none';$('#sidebar').classList.remove('open');renderAll()}
+  function go(page,title){$$('.page').forEach(x=>x.classList.remove('active'));$('#page-'+page).classList.add('active');$$('.nav button').forEach(x=>x.classList.toggle('active',x.dataset.page===page));$('#topTitle').textContent=['clientes','servicos'].includes(page)?'':title;$('#quickAdd').style.display=page==='servicos'?'inline-flex':'none';$('#sidebar').classList.remove('open');renderAll()}
   $$('.nav button').forEach(b=>b.addEventListener('click',()=>go(b.dataset.page,b.textContent.trim().replace(/^[^\s]+\s/,''))));
   $$('[data-close]').forEach(b=>b.addEventListener('click',()=>closeModal(b.dataset.close)));
   $$('.modal-backdrop').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)closeModal(m.id)}));
