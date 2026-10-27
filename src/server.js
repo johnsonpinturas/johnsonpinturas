@@ -3,7 +3,7 @@ const express = require('express');
 const path = require('path');
 const { Pool } = require('pg');
 const ExcelJS = require('exceljs');
-const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 
 if (!process.env.DATABASE_URL) {
@@ -17,10 +17,10 @@ app.set('trust proxy', 1);
 app.use(express.json({ limit: '1mb' }));
 
 const ADMIN_USER = process.env.ADMIN_USER;
-const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH;
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 const JWT_SECRET = process.env.JWT_SECRET;
-if (!ADMIN_USER || !ADMIN_PASSWORD_HASH || !JWT_SECRET) {
-  console.error('ADMIN_USER, ADMIN_PASSWORD_HASH e JWT_SECRET devem ser configurados.');
+if (!ADMIN_USER || !ADMIN_PASSWORD || !JWT_SECRET) {
+  console.error('ADMIN_USER, ADMIN_PASSWORD e JWT_SECRET devem ser configurados.');
   process.exit(1);
 }
 const parseCookies = req => Object.fromEntries((req.headers.cookie || '').split(';').filter(Boolean).map(item => { const i=item.indexOf('='); return [decodeURIComponent(item.slice(0,i).trim()), decodeURIComponent(item.slice(i+1).trim())]; }));
@@ -31,8 +31,9 @@ const authRequired = (req,res,next) => {
 app.post('/api/auth/login', asyncRoute(async (req,res) => {
   const usuario=String(req.body.usuario||'').trim();
   const senha=String(req.body.senha||'');
-  const validUser=usuario===ADMIN_USER;
-  const validPassword=validUser && await bcrypt.compare(senha,ADMIN_PASSWORD_HASH);
+  const safeEqual=(a,b)=>{const x=Buffer.from(String(a)),y=Buffer.from(String(b));return x.length===y.length && crypto.timingSafeEqual(x,y)};
+  const validUser=safeEqual(usuario,ADMIN_USER);
+  const validPassword=validUser && safeEqual(senha,ADMIN_PASSWORD);
   if(!validPassword) return res.status(401).json({error:'Usuário ou senha inválidos.'});
   const token=jwt.sign({usuario,role:'admin'},JWT_SECRET,{expiresIn:'8h'});
   res.setHeader('Set-Cookie',`admin_token=${encodeURIComponent(token)}; HttpOnly; Path=/; Max-Age=28800; SameSite=Strict${process.env.NODE_ENV==='production'?'; Secure':''}`);
