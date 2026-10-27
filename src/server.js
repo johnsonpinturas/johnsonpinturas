@@ -3,6 +3,8 @@ const express = require('express');
 const path = require('path');
 const { Pool } = require('pg');
 const ExcelJS = require('exceljs');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 
 if (!process.env.DATABASE_URL) {
   console.error('DATABASE_URL nao configurada.');
@@ -10,9 +12,37 @@ if (!process.env.DATABASE_URL) {
 }
 const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false }, max: 10 });
 const app = express();
-app.use(express.json({ limit: '1mb' }));
-app.use(express.static(path.join(__dirname, '..', 'public')));
 const asyncRoute = fn => (req,res,next)=>Promise.resolve(fn(req,res,next)).catch(next);
+app.set('trust proxy', 1);
+app.use(express.json({ limit: '1mb' }));
+
+const ADMIN_USER = process.env.ADMIN_USER;
+const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH;
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!ADMIN_USER || !ADMIN_PASSWORD_HASH || !JWT_SECRET) {
+  console.error('ADMIN_USER, ADMIN_PASSWORD_HASH e JWT_SECRET devem ser configurados.');
+  process.exit(1);
+}
+const parseCookies = req => Object.fromEntries((req.headers.cookie || '').split(';').filter(Boolean).map(item => { const i=item.indexOf('='); return [decodeURIComponent(item.slice(0,i).trim()), decodeURIComponent(item.slice(i+1).trim())]; }));
+const authRequired = (req,res,next) => {
+  try { req.admin=jwt.verify(parseCookies(req).admin_token,JWT_SECRET); next(); }
+  catch { res.status(401).json({error:'Sessão expirada. Faça login novamente.'}); }
+};
+app.post('/api/auth/login', asyncRoute(async (req,res) => {
+  const usuario=String(req.body.usuario||'').trim();
+  const senha=String(req.body.senha||'');
+  const validUser=usuario===ADMIN_USER;
+  const validPassword=validUser && await bcrypt.compare(senha,ADMIN_PASSWORD_HASH);
+  if(!validPassword) return res.status(401).json({error:'Usuário ou senha inválidos.'});
+  const token=jwt.sign({usuario,role:'admin'},JWT_SECRET,{expiresIn:'8h'});
+  res.setHeader('Set-Cookie',`admin_token=${encodeURIComponent(token)}; HttpOnly; Path=/; Max-Age=28800; SameSite=Strict${process.env.NODE_ENV==='production'?'; Secure':''}`);
+  res.json({ok:true,usuario});
+}));
+app.get('/api/auth/me',(req,res)=>{try{const admin=jwt.verify(parseCookies(req).admin_token,JWT_SECRET);res.json({authenticated:true,usuario:admin.usuario});}catch{res.status(401).json({authenticated:false});}});
+app.post('/api/auth/logout',(req,res)=>{res.setHeader('Set-Cookie',`admin_token=; HttpOnly; Path=/; Max-Age=0; SameSite=Strict${process.env.NODE_ENV==='production'?'; Secure':''}`);res.json({ok:true});});
+app.use('/api/clientes',authRequired);
+app.use('/api/servicos',authRequired);
+app.use(express.static(path.join(__dirname, '..', 'public')));
 const required = (obj, fields) => fields.filter(f => obj[f] === undefined || obj[f] === null || String(obj[f]).trim() === '');
 
 app.get('/api/health', asyncRoute(async (req,res)=>{await pool.query('SELECT 1');res.json({status:'ok',database:'connected'});}));
