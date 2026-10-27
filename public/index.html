@@ -31,6 +31,20 @@
     .login-brand{display:flex;align-items:center;gap:14px;margin-bottom:24px}.login-brand img{width:64px;height:64px;border-radius:14px;object-fit:cover}.login-brand h1{margin:0;color:#17253a;font-size:24px}.login-brand p{margin:4px 0 0;color:#64748b}
     .login-form{display:grid;gap:16px}.login-form label{font-weight:700;font-size:14px;color:#334155}.login-form input{width:100%;height:48px;border:1px solid #cbd5e1;border-radius:10px;padding:0 13px;font:inherit;box-sizing:border-box}.login-form input:focus{outline:3px solid rgba(249,115,22,.2);border-color:#f97316}.login-form button{width:100%;justify-content:center;height:48px}.login-error{min-height:20px;color:#b91c1c;font-size:14px}.admin-user{font-size:13px;color:#64748b}.logout-btn{margin-left:8px}
   </style>
+
+  <style id="management-traffic-light-style">
+    .management-section{margin-top:20px}.management-section>h4{margin:0 0 12px;color:#17253a;font-size:18px}
+    .traffic-cards{display:grid;grid-template-columns:repeat(5,minmax(150px,1fr));gap:12px;margin-bottom:16px}
+    .traffic-card{position:relative;overflow:hidden;padding:16px;border-left:5px solid var(--signal);min-height:104px}
+    .traffic-card::after{content:"";position:absolute;width:72px;height:72px;border-radius:50%;right:-18px;top:-18px;background:var(--signal);opacity:.10}
+    .traffic-card .traffic-label{display:block;color:#64748b;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.025em}
+    .traffic-card strong{display:block;color:#17253a;font-size:30px;line-height:1.2;margin:5px 0}.traffic-card small{color:#64748b}
+    .signal-red{--signal:#dc2626}.signal-yellow{--signal:#eab308}.signal-blue{--signal:#2563eb}.signal-gray{--signal:#94a3b8}.signal-green{--signal:#16a34a}
+    .attention-panel{padding:0;overflow:hidden}.attention-head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:18px 20px;border-bottom:1px solid #e5e7eb}.attention-head h4{margin:0;color:#17253a}.attention-head span{font-size:13px;color:#64748b}
+    .attention-table td,.attention-table th{white-space:nowrap}.attention-table td:nth-child(2){white-space:normal;min-width:180px}.deadline{display:inline-flex;padding:5px 9px;border-radius:999px;font-size:12px;font-weight:800}.deadline-overdue{background:#fee2e2;color:#991b1b}.deadline-soon{background:#fef3c7;color:#92400e}.deadline-nodate{background:#f1f5f9;color:#475569}
+    @media(max-width:1100px){.traffic-cards{grid-template-columns:repeat(3,1fr)}}
+    @media(max-width:700px){.traffic-cards{grid-template-columns:1fr 1fr}.traffic-cards .traffic-card:last-child{grid-column:1/-1}.attention-head{align-items:flex-start;flex-direction:column}}
+  </style>
 </head>
 <body>
 <div class="login-screen" id="loginScreen">
@@ -80,6 +94,20 @@
           <div class="card panel"><h4>Distribuição dos serviços</h4><div class="status-list" id="statusBars"></div></div>
           <div class="card panel"><h4>Próximos serviços</h4><div class="upcoming" id="upcoming"></div></div>
         </div>
+        <section class="management-section" aria-labelledby="trafficLightTitle">
+          <h4 id="trafficLightTitle">Farol gerencial de serviços</h4>
+          <div class="traffic-cards">
+            <div class="card traffic-card signal-red"><span class="traffic-label">Atrasados</span><strong id="fAtrasados">0</strong><small>Prazo de conclusão vencido</small></div>
+            <div class="card traffic-card signal-yellow"><span class="traffic-label">Vencem em até 7 dias</span><strong id="fVencem7">0</strong><small>Precisam de acompanhamento</small></div>
+            <div class="card traffic-card signal-blue"><span class="traffic-label">No prazo</span><strong id="fNoPrazo">0</strong><small>Serviços ativos com prazo</small></div>
+            <div class="card traffic-card signal-gray"><span class="traffic-label">Sem conclusão prevista</span><strong id="fSemData">0</strong><small>Serviços ativos sem data final</small></div>
+            <div class="card traffic-card signal-green"><span class="traffic-label">Finalizados</span><strong id="fFinalizados">0</strong><small>Dentro do período filtrado</small></div>
+          </div>
+          <div class="card attention-panel">
+            <div class="attention-head"><h4>Serviços que precisam de atenção</h4><span id="attentionSummary">Nenhuma pendência</span></div>
+            <div class="table-wrap"><table class="data-table attention-table"><thead><tr><th>Prioridade</th><th>Cliente / Serviço</th><th>Conclusão prevista</th><th>Situação do prazo</th><th>Status</th><th>Ação</th></tr></thead><tbody id="attentionRows"></tbody></table></div>
+          </div>
+        </section>
       </section>
       <section class="page" id="page-clientes">
         <div class="page-head"><div><h3>Clientes</h3><p>Cadastro e consulta de clientes.</p></div><button class="btn btn-primary" id="addClient">＋ Novo Cliente</button></div>
