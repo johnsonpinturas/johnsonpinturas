@@ -24,8 +24,27 @@
     .dashboard-filter .filter-result{font-size:13px;color:#64748b;align-self:center;margin-left:auto}
     @media(max-width:760px){.dashboard-filter{align-items:stretch}.dashboard-filter .filter-field,.dashboard-filter .btn{width:100%}.dashboard-filter .filter-result{margin-left:0;text-align:center}}
   </style>
+
+  <style id="admin-login-style">
+    .login-screen{position:fixed;inset:0;z-index:9999;background:linear-gradient(135deg,#101e32,#203754);display:flex;align-items:center;justify-content:center;padding:20px}
+    .login-screen[hidden]{display:none}.login-card{width:min(420px,100%);background:#fff;border-radius:20px;padding:32px;box-shadow:0 24px 70px rgba(0,0,0,.35)}
+    .login-brand{display:flex;align-items:center;gap:14px;margin-bottom:24px}.login-brand img{width:64px;height:64px;border-radius:14px;object-fit:cover}.login-brand h1{margin:0;color:#17253a;font-size:24px}.login-brand p{margin:4px 0 0;color:#64748b}
+    .login-form{display:grid;gap:16px}.login-form label{font-weight:700;font-size:14px;color:#334155}.login-form input{width:100%;height:48px;border:1px solid #cbd5e1;border-radius:10px;padding:0 13px;font:inherit;box-sizing:border-box}.login-form input:focus{outline:3px solid rgba(249,115,22,.2);border-color:#f97316}.login-form button{width:100%;justify-content:center;height:48px}.login-error{min-height:20px;color:#b91c1c;font-size:14px}.admin-user{font-size:13px;color:#64748b}.logout-btn{margin-left:8px}
+  </style>
 </head>
 <body>
+<div class="login-screen" id="loginScreen">
+  <div class="login-card">
+    <div class="login-brand"><img src="assets/images/logo-johnson-pintura.jpg" alt="Logomarca Johnson Pintura"><div><h1>Johnson Pintura</h1><p>Acesso administrativo</p></div></div>
+    <form class="login-form" id="loginForm">
+      <div><label for="loginUser">Usuário</label><input id="loginUser" autocomplete="username" required></div>
+      <div><label for="loginPassword">Senha</label><input type="password" id="loginPassword" autocomplete="current-password" required></div>
+      <div class="login-error" id="loginError" aria-live="polite"></div>
+      <button class="btn btn-primary" type="submit" id="loginButton">Entrar</button>
+    </form>
+  </div>
+</div>
+
 <div class="app">
   <aside class="sidebar" id="sidebar">
     <div class="brand"><div class="brand-icon"><img src="assets/images/logo-johnson-pintura.jpg" alt="Logomarca Johnson Pintura"></div><div><h1>Johnson Pintura</h1><small>Gestão de Serviços</small></div></div>
@@ -39,7 +58,7 @@
     <div class="side-footer">Criado por<br><strong>Cristiane Sanchez da Silva de Jesus</strong></div>
   </aside>
   <main>
-    <header class="topbar"><div style="display:flex;align-items:center;gap:10px"><button class="btn btn-secondary menu-btn" id="menuBtn">☰</button><h2 id="topTitle">Visão Geral</h2></div><div class="top-actions"><button class="btn btn-primary" id="quickAdd" style="display:none">＋ Novo Serviço</button></div></header>
+    <header class="topbar"><div style="display:flex;align-items:center;gap:10px"><button class="btn btn-secondary menu-btn" id="menuBtn">☰</button><h2 id="topTitle">Visão Geral</h2></div><div class="top-actions"><span class="admin-user" id="adminUser"></span><button class="btn btn-secondary logout-btn" id="logoutButton" type="button">Sair</button><button class="btn btn-primary" id="quickAdd" style="display:none">＋ Novo Serviço</button></div></header>
     <div class="content">
       <section class="page active" id="page-dashboard">
         <div class="page-head"><div><h3>Painel de Controle</h3><p>Acompanhe seus serviços e valores em um só lugar.</p></div><span id="todayLabel"></span></div>
