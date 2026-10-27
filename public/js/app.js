@@ -2,6 +2,7 @@
   const API = '/api';
   let services = [];
   let clients = [];
+  let authenticated = false;
   const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
   const money = n => (Number(n)||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
   const dateBR = d => d ? new Date(String(d).slice(0,10)+'T12:00:00').toLocaleDateString('pt-BR') : 'Não informada';
@@ -9,9 +10,17 @@
   const slugStatus = s => ({'Aguardando retorno':'s-aguardando','Em andamento':'s-andamento','Finalizado':'s-finalizado'}[s]||'');
   async function request(path, options={}) {
     const res = await fetch(API+path,{headers:{'Content-Type':'application/json',...(options.headers||{})},...options});
+    if(res.status===401){showLogin('Sua sessão expirou. Faça login novamente.');throw new Error('Sessão expirada.')}
     if(!res.ok){let msg='Erro na operação';try{const x=await res.json();msg=x.error||msg}catch{}throw new Error(msg)}
     return res.status===204?null:res.json();
   }
+
+  function showLogin(message=''){$('#loginScreen').hidden=false;$('#loginError').textContent=message;authenticated=false;setTimeout(()=>$('#loginUser').focus(),0)}
+  function hideLogin(usuario){$('#loginScreen').hidden=true;$('#loginError').textContent='';$('#adminUser').textContent='Admin: '+usuario;authenticated=true}
+  async function checkAuth(){try{const res=await fetch(API+'/auth/me');if(!res.ok)throw new Error();const data=await res.json();hideLogin(data.usuario);await loadAll()}catch{showLogin()}}
+  $('#loginForm').addEventListener('submit',async e=>{e.preventDefault();const button=$('#loginButton');button.disabled=true;$('#loginError').textContent='';try{const res=await fetch(API+'/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({usuario:$('#loginUser').value.trim(),senha:$('#loginPassword').value})});const data=await res.json();if(!res.ok)throw new Error(data.error||'Não foi possível entrar.');$('#loginPassword').value='';hideLogin(data.usuario);await loadAll()}catch(err){showLogin(err.message)}finally{button.disabled=false}});
+  $('#logoutButton').addEventListener('click',async()=>{await fetch(API+'/auth/logout',{method:'POST'});services=[];clients=[];$('#loginForm').reset();showLogin('Sessão encerrada com segurança.')});
+
   function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500)}
   function openModal(id){$('#'+id).classList.add('open')} function closeModal(id){$('#'+id).classList.remove('open')}
   function go(page,title){$$('.page').forEach(x=>x.classList.remove('active'));$('#page-'+page).classList.add('active');$$('.nav button').forEach(x=>x.classList.toggle('active',x.dataset.page===page));$('#topTitle').textContent=['clientes','servicos'].includes(page)?'':title;$('#quickAdd').style.display=page==='servicos'?'inline-flex':'none';$('#sidebar').classList.remove('open');renderAll()}
@@ -54,5 +63,5 @@
   window.deleteService=async id=>{if(confirm('Deseja realmente excluir este serviço?'))try{await request('/servicos/'+id,{method:'DELETE'});await loadAll();toast('Serviço excluído.')}catch(e){toast(e.message)}};
   window.editClient=id=>{const x=clients.find(v=>Number(v.id)===Number(id));if(!x)return;$('#clientId').value=x.id;$('#cNome').value=x.nome;$('#cTelefone').value=x.telefone||'';$('#cEndereco').value=x.endereco;$('#cTipo').value=x.tipo;$('#cEmail').value=x.email||'';$('#cObs').value=x.obs||'';$('#clientModalTitle').textContent='Editar Cliente';openModal('clientModal')};
   window.deleteClient=async id=>{if(confirm('Deseja realmente excluir este cliente?'))try{await request('/clientes/'+id,{method:'DELETE'});await loadAll();toast('Cliente excluído.')}catch(e){toast(e.message)}};
-  loadAll();
+  checkAuth();
 })();
