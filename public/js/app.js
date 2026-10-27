@@ -20,13 +20,20 @@
   $$('.modal-backdrop').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)closeModal(m.id)}));
   $('#menuBtn').addEventListener('click',()=>$('#sidebar').classList.toggle('open'));
   $('#todayLabel').textContent=new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
+  function getDashboardServices(){
+    const start=$('#dashboardStartDate').value,end=$('#dashboardEndDate').value;
+    return services.filter(x=>{const d=x.inicio?String(x.inicio).slice(0,10):'';return d&&(!start||d>=start)&&(!end||d<=end)});
+  }
   function renderDashboard(){
-    $('#kTotal').textContent=services.length;$('#kAndamento').textContent=services.filter(x=>x.status==='Em andamento').length;$('#kAguardando').textContent=services.filter(x=>x.status==='Aguardando retorno').length;
-    $('#kValorAndamento').textContent=money(services.filter(x=>x.status==='Em andamento').reduce((a,x)=>a+Number(x.valor||0),0));
-    $('#kValorFinalizado').textContent=money(services.filter(x=>x.status==='Finalizado').reduce((a,x)=>a+Number(x.valor||0),0));
-    const statuses=[['Aguardando retorno','#eab308'],['Em andamento','#3b82f6'],['Finalizado','#16a34a']],max=Math.max(services.length,1);
-    $('#statusBars').innerHTML=statuses.map(([s,c])=>{const n=services.filter(x=>x.status===s).length;return `<div class="status-row"><span>${s}</span><div class="bar"><span style="width:${n/max*100}%;background:${c}"></span></div><b>${n}</b></div>`}).join('');
-    const upcoming=[...services].filter(x=>x.inicio&&x.status!=='Finalizado').sort((a,b)=>String(a.inicio).localeCompare(String(b.inicio))).slice(0,4);$('#upcoming').innerHTML=upcoming.length?upcoming.map(x=>`<div class="up-item"><strong>${safe(x.cliente)}</strong><span>${dateBR(x.inicio)} • ${safe(x.tipo)}</span></div>`).join(''):'<div class="blank-panel">Nenhum serviço agendado.</div>';
+    const list=getDashboardServices();
+    $('#kTotal').textContent=list.length;$('#kAndamento').textContent=list.filter(x=>x.status==='Em andamento').length;$('#kAguardando').textContent=list.filter(x=>x.status==='Aguardando retorno').length;
+    $('#kValorAndamento').textContent=money(list.filter(x=>x.status==='Em andamento').reduce((a,x)=>a+Number(x.valor||0),0));
+    $('#kValorFinalizado').textContent=money(list.filter(x=>x.status==='Finalizado').reduce((a,x)=>a+Number(x.valor||0),0));
+    const statuses=[['Aguardando retorno','#eab308'],['Em andamento','#3b82f6'],['Finalizado','#16a34a']],max=Math.max(list.length,1);
+    $('#statusBars').innerHTML=statuses.map(([s,c])=>{const n=list.filter(x=>x.status===s).length;return `<div class="status-row"><span>${s}</span><div class="bar"><span style="width:${n/max*100}%;background:${c}"></span></div><b>${n}</b></div>`}).join('');
+    const upcoming=[...list].filter(x=>x.inicio&&x.status!=='Finalizado').sort((a,b)=>String(a.inicio).localeCompare(String(b.inicio))).slice(0,4);$('#upcoming').innerHTML=upcoming.length?upcoming.map(x=>`<div class="up-item"><strong>${safe(x.cliente)}</strong><span>${dateBR(x.inicio)} • ${safe(x.tipo)}</span></div>`).join(''):'<div class="blank-panel">Nenhum serviço encontrado no período.</div>';
+    const start=$('#dashboardStartDate').value,end=$('#dashboardEndDate').value;
+    $('#dashboardFilterResult').textContent=start||end?`${list.length} serviço(s) no período selecionado`:'Exibindo todos os períodos';
   }
   function renderClients(){const q=$('#clientSearch').value.toLowerCase(),list=clients.filter(x=>[x.nome,x.telefone,x.endereco].join(' ').toLowerCase().includes(q));$('#clientRows').innerHTML=list.length?list.map(x=>`<tr><td><b>${safe(x.nome)}</b><br><small>${safe(x.email||'')}</small></td><td>${safe(x.telefone||'')}</td><td>${safe(x.endereco)}</td><td>${safe(x.tipo)}</td><td>${services.filter(s=>Number(s.cliente_id)===Number(x.id)).length}</td><td><div class="actions"><button class="btn btn-secondary btn-sm" onclick="editClient(${x.id})">Editar</button><button class="btn btn-danger btn-sm" onclick="deleteClient(${x.id})">Excluir</button></div></td></tr>`).join(''):'<tr><td colspan="6" class="empty">Nenhum cliente encontrado.</td></tr>'}
   function renderServices(){const q=$('#serviceSearch').value.toLowerCase(),st=$('#statusFilter').value,list=services.filter(x=>[x.cliente,x.tipo,x.endereco].join(' ').toLowerCase().includes(q)&&(!st||x.status===st));$('#serviceRows').innerHTML=list.length?list.map(x=>`<tr><td>#${x.id}</td><td><b>${safe(x.cliente)}</b><br><small>${safe(x.tipo)}</small></td><td>${safe(x.imovel)}<br><small>${safe(x.endereco)}</small></td><td>${dateBR(x.inicio)}</td><td><span class="badge ${slugStatus(x.status)}">${safe(x.status)}</span></td><td class="money">${money(x.valor)}</td><td><div class="actions"><button class="btn btn-secondary btn-sm" onclick="editService(${x.id})">Editar</button><button class="btn btn-danger btn-sm" onclick="deleteService(${x.id})">Excluir</button></div></td></tr>`).join(''):'<tr><td colspan="7" class="empty">Nenhum serviço encontrado.</td></tr>'}
@@ -34,6 +41,8 @@
   function renderFinance(){const sum=f=>services.filter(f).reduce((a,x)=>a+Number(x.valor||0),0);$('#fTotal').textContent=money(sum(()=>true));$('#fExecucao').textContent=money(sum(x=>x.status==='Em andamento'));$('#fConcluido').textContent=money(sum(x=>x.status==='Finalizado'))}
   function renderAll(){renderDashboard();renderClients();renderServices();renderAgenda();renderFinance()}
   async function loadAll(){try{[clients,services]=await Promise.all([request('/clientes'),request('/servicos')]);renderAll()}catch(e){toast('Falha ao carregar: '+e.message)}}
+  $('#applyDashboardFilter').addEventListener('click',()=>{const start=$('#dashboardStartDate').value,end=$('#dashboardEndDate').value;if(start&&end&&start>end){toast('A Data início não pode ser maior que a Data fim.');return}renderDashboard()});
+  $('#clearDashboardFilter').addEventListener('click',()=>{$('#dashboardStartDate').value='';$('#dashboardEndDate').value='';renderDashboard()});
   $('#clientSearch').addEventListener('input',renderClients);$('#serviceSearch').addEventListener('input',renderServices);$('#statusFilter').addEventListener('change',renderServices);
   $('#exportExcel').addEventListener('click',()=>{const q=$('#serviceSearch').value.trim(),status=$('#statusFilter').value;const params=new URLSearchParams();if(q)params.set('q',q);if(status)params.set('status',status);window.location.href='/api/servicos/exportar.xlsx'+(params.toString()?'?'+params.toString():'');});
   function newService(){ $('#serviceForm').reset();$('#serviceId').value='';$('#serviceModalTitle').textContent='Novo Serviço';openModal('serviceModal') }
