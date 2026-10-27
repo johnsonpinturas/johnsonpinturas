@@ -43,6 +43,22 @@
     const upcoming=[...list].filter(x=>x.inicio&&x.status!=='Finalizado').sort((a,b)=>String(a.inicio).localeCompare(String(b.inicio))).slice(0,4);$('#upcoming').innerHTML=upcoming.length?upcoming.map(x=>`<div class="up-item"><strong>${safe(x.cliente)}</strong><span>${dateBR(x.inicio)} • ${safe(x.tipo)}</span></div>`).join(''):'<div class="blank-panel">Nenhum serviço encontrado no período.</div>';
     const start=$('#dashboardStartDate').value,end=$('#dashboardEndDate').value;
     $('#dashboardFilterResult').textContent=start||end?`${list.length} serviço(s) no período selecionado`:'Exibindo todos os períodos';
+    renderManagementTrafficLight(list);
+  }
+  function renderManagementTrafficLight(list){
+    const today=new Date();today.setHours(0,0,0,0);const day=86400000;
+    const active=list.filter(x=>x.status!=='Finalizado');
+    const deadline=x=>x.fim?new Date(String(x.fim).slice(0,10)+'T00:00:00'):null;
+    const days=x=>Math.round((deadline(x)-today)/day);
+    const overdue=active.filter(x=>deadline(x)&&days(x)<0);
+    const soon=active.filter(x=>deadline(x)&&days(x)>=0&&days(x)<=7);
+    const onTime=active.filter(x=>deadline(x)&&days(x)>7);
+    const noDate=active.filter(x=>!deadline(x));
+    const finished=list.filter(x=>x.status==='Finalizado');
+    $('#fAtrasados').textContent=overdue.length;$('#fVencem7').textContent=soon.length;$('#fNoPrazo').textContent=onTime.length;$('#fSemData').textContent=noDate.length;$('#fFinalizados').textContent=finished.length;
+    const attention=[...overdue.map(x=>({x,level:0,label:'Atrasado',css:'deadline-overdue',detail:`${Math.abs(days(x))} dia(s) em atraso`})),...soon.map(x=>({x,level:1,label:'Atenção',css:'deadline-soon',detail:days(x)===0?'Vence hoje':`Vence em ${days(x)} dia(s)`})),...noDate.map(x=>({x,level:2,label:'Sem data',css:'deadline-nodate',detail:'Definir data de conclusão'}))].sort((a,b)=>a.level-b.level||(deadline(a.x)||new Date(8640000000000000))-(deadline(b.x)||new Date(8640000000000000)));
+    $('#attentionSummary').textContent=attention.length?`${attention.length} serviço(s) exigem atenção`:'Nenhuma pendência no período';
+    $('#attentionRows').innerHTML=attention.length?attention.map(a=>`<tr><td><span class="deadline ${a.css}">${a.label}</span></td><td><b>${safe(a.x.cliente)}</b><br><small>${safe(a.x.tipo)}</small></td><td>${dateBR(a.x.fim)}</td><td>${a.detail}</td><td><span class="badge ${slugStatus(a.x.status)}">${safe(a.x.status)}</span></td><td><button type="button" class="btn btn-secondary btn-sm" onclick="editService(${a.x.id})">Editar</button></td></tr>`).join(''):'<tr><td colspan="6" class="empty">Nenhum serviço exige atenção no período selecionado.</td></tr>';
   }
   function renderClients(){const q=$('#clientSearch').value.toLowerCase(),list=clients.filter(x=>[x.nome,x.telefone,x.endereco].join(' ').toLowerCase().includes(q));$('#clientRows').innerHTML=list.length?list.map(x=>`<tr><td><b>${safe(x.nome)}</b><br><small>${safe(x.email||'')}</small></td><td>${safe(x.telefone||'')}</td><td>${safe(x.endereco)}</td><td>${safe(x.tipo)}</td><td>${services.filter(s=>Number(s.cliente_id)===Number(x.id)).length}</td><td><div class="actions"><button class="btn btn-secondary btn-sm" onclick="editClient(${x.id})">Editar</button><button class="btn btn-danger btn-sm" onclick="deleteClient(${x.id})">Excluir</button></div></td></tr>`).join(''):'<tr><td colspan="6" class="empty">Nenhum cliente encontrado.</td></tr>'}
   function renderServices(){const q=$('#serviceSearch').value.toLowerCase(),st=$('#statusFilter').value,list=services.filter(x=>[x.cliente,x.tipo,x.endereco].join(' ').toLowerCase().includes(q)&&(!st||x.status===st));$('#serviceRows').innerHTML=list.length?list.map(x=>`<tr><td>#${x.id}</td><td><b>${safe(x.cliente)}</b><br><small>${safe(x.tipo)}</small></td><td>${safe(x.imovel)}<br><small>${safe(x.endereco)}</small></td><td>${dateBR(x.inicio)}</td><td><span class="badge ${slugStatus(x.status)}">${safe(x.status)}</span></td><td class="money">${money(x.valor)}</td><td><div class="actions"><button class="btn btn-secondary btn-sm" onclick="editService(${x.id})">Editar</button><button class="btn btn-danger btn-sm" onclick="deleteService(${x.id})">Excluir</button></div></td></tr>`).join(''):'<tr><td colspan="7" class="empty">Nenhum serviço encontrado.</td></tr>'}
