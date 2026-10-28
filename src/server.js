@@ -3,6 +3,7 @@ const express = require('express');
 const path = require('path');
 const { Pool } = require('pg');
 const ExcelJS = require('exceljs');
+const PDFDocument = require('pdfkit');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 
@@ -43,7 +44,19 @@ app.get('/api/auth/me',(req,res)=>{try{const admin=jwt.verify(parseCookies(req).
 app.post('/api/auth/logout',(req,res)=>{res.setHeader('Set-Cookie',`admin_token=; HttpOnly; Path=/; Max-Age=0; SameSite=Strict${process.env.NODE_ENV==='production'?'; Secure':''}`);res.json({ok:true});});
 app.use('/api/clientes',authRequired);
 app.use('/api/servicos',authRequired);
+app.use('/api/orcamentos',authRequired);
 app.use(express.static(path.join(__dirname, '..', 'public')));
+
+async function ensureBudgetTable(){
+  await pool.query(`CREATE TABLE IF NOT EXISTS orcamentos (
+    id SERIAL PRIMARY KEY, cliente VARCHAR(180) NOT NULL, endereco TEXT NOT NULL,
+    telefone VARCHAR(40), email VARCHAR(180) NOT NULL, tipo_servico VARCHAR(120) NOT NULL,
+    local_pintura VARCHAR(120) NOT NULL, descricao TEXT, valor NUMERIC(12,2) NOT NULL CHECK(valor >= 0),
+    condicao_pagamento TEXT, observacao TEXT, status VARCHAR(40) NOT NULL DEFAULT 'Em elaboração',
+    data_orcamento DATE NOT NULL DEFAULT CURRENT_DATE, validade DATE, criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
+}
 const required = (obj, fields) => fields.filter(f => obj[f] === undefined || obj[f] === null || String(obj[f]).trim() === '');
 
 app.get('/api/health', asyncRoute(async (req,res)=>{await pool.query('SELECT 1');res.json({status:'ok',database:'connected'});}));
@@ -84,7 +97,36 @@ const {rows}=await pool.query(`INSERT INTO servicos(cliente_id,nome_cliente,tele
 app.post('/api/servicos',asyncRoute((req,res)=>saveService(req,res,false)));
 app.put('/api/servicos/:id',asyncRoute((req,res)=>saveService(req,res,true)));
 app.delete('/api/servicos/:id',asyncRoute(async(req,res)=>{const r=await pool.query('DELETE FROM servicos WHERE id=$1',[req.params.id]);if(!r.rowCount)return res.status(404).json({error:'Servico nao encontrado'});res.status(204).end();}));
+
+const budgetFields=['cliente','endereco','email','tipo_servico','local_pintura','valor','status','data_orcamento'];
+app.get('/api/orcamentos',asyncRoute(async(req,res)=>{const {rows}=await pool.query('SELECT * FROM orcamentos ORDER BY criado_em DESC');res.json(rows);}));
+async function saveBudget(req,res,update=false){
+  const b=req.body,missing=required(b,budgetFields);if(missing.length)return res.status(400).json({error:'Campos obrigatorios: '+missing.join(', ')});
+  const allowed=['Em elaboração','Enviado','Aprovado','Recusado','Vencido'];if(!allowed.includes(b.status))return res.status(400).json({error:'Status do orçamento inválido.'});
+  const value=Number(b.valor);if(!Number.isFinite(value)||value<0)return res.status(400).json({error:'Valor do orçamento inválido.'});
+  const vals=[b.cliente,b.endereco,b.telefone||null,b.email,b.tipo_servico,b.local_pintura,b.descricao||null,value,b.condicao_pagamento||null,b.observacao||null,b.status,b.data_orcamento,b.validade||null];
+  if(update){vals.push(req.params.id);const r=await pool.query(`UPDATE orcamentos SET cliente=$1,endereco=$2,telefone=$3,email=$4,tipo_servico=$5,local_pintura=$6,descricao=$7,valor=$8,condicao_pagamento=$9,observacao=$10,status=$11,data_orcamento=$12,validade=$13,atualizado_em=NOW() WHERE id=$14`,vals);if(!r.rowCount)return res.status(404).json({error:'Orçamento não encontrado.'});return res.json({ok:true});}
+  const {rows}=await pool.query(`INSERT INTO orcamentos(cliente,endereco,telefone,email,tipo_servico,local_pintura,descricao,valor,condicao_pagamento,observacao,status,data_orcamento,validade) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING id`,vals);res.status(201).json(rows[0]);
+}
+app.post('/api/orcamentos',asyncRoute((req,res)=>saveBudget(req,res)));
+app.put('/api/orcamentos/:id',asyncRoute((req,res)=>saveBudget(req,res,true)));
+app.delete('/api/orcamentos/:id',asyncRoute(async(req,res)=>{const r=await pool.query('DELETE FROM orcamentos WHERE id=$1',[req.params.id]);if(!r.rowCount)return res.status(404).json({error:'Orçamento não encontrado.'});res.status(204).end();}));
+app.get('/api/orcamentos/:id/pdf',asyncRoute(async(req,res)=>{
+  const {rows}=await pool.query('SELECT * FROM orcamentos WHERE id=$1',[req.params.id]);const o=rows[0];if(!o)return res.status(404).json({error:'Orçamento não encontrado.'});
+  const brl=v=>Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});const dt=v=>v?new Date(v).toLocaleDateString('pt-BR',{timeZone:'UTC'}):'Não informada';
+  res.setHeader('Content-Type','application/pdf');res.setHeader('Content-Disposition',`attachment; filename="orcamento-johnson-${o.id}.pdf"`);
+  const doc=new PDFDocument({size:'A4',margin:48,info:{Title:`Orçamento #${o.id} - Johnson Pinturas`,Author:'Johnson Pinturas'}});doc.pipe(res);
+  doc.rect(0,0,595,105).fill('#17253A');doc.fillColor('#FFFFFF').fontSize(24).text('JOHNSON PINTURAS',48,35).fontSize(11).text('Orçamento de serviços de pintura',48,68);
+  doc.fillColor('#17253A').fontSize(16).text(`ORÇAMENTO Nº ${o.id}`,48,132);doc.fontSize(10).fillColor('#475569').text(`Data: ${dt(o.data_orcamento)}   |   Validade: ${dt(o.validade)}   |   Status: ${o.status}`,48,158);
+  doc.moveTo(48,184).lineTo(547,184).strokeColor('#CBD5E1').stroke();doc.fillColor('#17253A').fontSize(13).text('DADOS DO CLIENTE',48,202);
+  doc.fontSize(10).fillColor('#334155').text(`Cliente: ${o.cliente}`,48,228).text(`Endereço: ${o.endereco}`,48,245,{width:499}).text(`Telefone: ${o.telefone||'Não informado'}`,48,276).text(`E-mail: ${o.email}`,285,276);
+  doc.fillColor('#17253A').fontSize(13).text('DETALHES DO SERVIÇO',48,309);doc.fontSize(10).fillColor('#334155').text(`Tipo de serviço: ${o.tipo_servico}`,48,335).text(`Local da pintura: ${o.local_pintura}`,285,335).text('Descrição:',48,360).text(o.descricao||'Não informada.',48,377,{width:499});
+  let y=Math.max(doc.y+20,440);doc.roundedRect(48,y,499,58,8).fill('#F1F5F9');doc.fillColor('#475569').fontSize(10).text('VALOR TOTAL DO SERVIÇO',65,y+13).fillColor('#15803D').fontSize(20).text(brl(o.valor),65,y+29);
+  y+=82;doc.fillColor('#17253A').fontSize(12).text('Condição de pagamento',48,y).fontSize(10).fillColor('#334155').text(o.condicao_pagamento||'A combinar.',48,y+20,{width:499});y=doc.y+18;doc.fillColor('#17253A').fontSize(12).text('Observações',48,y).fontSize(10).fillColor('#334155').text(o.observacao||'Nenhuma observação adicional.',48,y+20,{width:499});
+  doc.fontSize(9).fillColor('#64748B').text('Johnson Pinturas • Criado por Cristiane Sanchez da Silva de Jesus',48,780,{width:499,align:'center'});doc.end();
+}));
+
 app.get('*',(req,res)=>res.sendFile(path.join(__dirname,'..','public','index.html')));
 app.use((err,req,res,next)=>{console.error(err);res.status(500).json({error:'Erro interno. Verifique a conexao com o banco.'});});
 const port=process.env.PORT||3000;
-app.listen(port,'0.0.0.0',()=>console.log(`Johnson Pinturas ativo na porta ${port}`));
+ensureBudgetTable().then(()=>app.listen(port,'0.0.0.0',()=>console.log(`Johnson Pinturas ativo na porta ${port}`))).catch(err=>{console.error('Falha ao preparar banco:',err);process.exit(1);});
