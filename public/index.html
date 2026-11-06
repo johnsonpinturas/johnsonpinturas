@@ -57,6 +57,10 @@
     @media(max-width:1000px){.budget-summary{grid-template-columns:repeat(2,1fr)}}
     @media(max-width:760px){.budget-summary{grid-template-columns:1fr}.budget-item{grid-template-columns:1fr}.budget-totals{grid-template-columns:1fr 1fr}.budget-actions .btn{width:100%}}
   </style>
+
+  <style id="third-party-style">
+    .third-summary{display:grid;grid-template-columns:repeat(5,minmax(150px,1fr));gap:12px;margin-bottom:18px}.third-status{display:inline-flex;padding:5px 9px;border-radius:999px;font-size:12px;font-weight:800}.tp-paid{background:#dcfce7;color:#166534}.tp-due{background:#fef3c7;color:#92400e}.tp-overdue{background:#fee2e2;color:#991b1b}.tp-running{background:#dbeafe;color:#1d4ed8}.tp-waiting{background:#f1f5f9;color:#475569}.tp-cancelled{background:#e5e7eb;color:#374151}.third-calc{grid-column:1/-1;padding:14px;border-radius:12px;background:#f1f5f9;display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.third-calc span{font-size:12px;color:#64748b}.third-calc strong{display:block;font-size:18px;color:#17253a;margin-top:4px}.third-calc .grand strong{color:#15803d}.file-note{font-size:12px;color:#64748b}.profit-positive{color:#15803d!important}.profit-negative{color:#b91c1c!important}@media(max-width:1000px){.third-summary{grid-template-columns:repeat(2,1fr)}}@media(max-width:700px){.third-summary,.third-calc{grid-template-columns:1fr}.third-summary .card:last-child{grid-column:1/-1}}
+  </style>
 </head>
 <body>
 <div class="login-screen" id="loginScreen">
@@ -80,6 +84,7 @@
       <button data-page="servicos">🖌️ Serviços</button>
       <button data-page="orcamentos">📄 Orçamentos</button>
       <button data-page="agenda">📅 Agenda</button>
+      <button data-page="terceiros">👷 Terceiros</button>
       <button data-page="financeiro">💰 Financeiro</button>
     </nav>
     <div class="side-footer">Criado por<br><strong>Cristiane Sanchez da Silva de Jesus</strong></div>
