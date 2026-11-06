@@ -56,6 +56,9 @@ async function ensureBudgetTable(){
     data_orcamento DATE NOT NULL DEFAULT CURRENT_DATE, validade DATE, criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW()
   )`);
+  await pool.query(`ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS materiais JSONB NOT NULL DEFAULT '[]'::jsonb`);
+  await pool.query(`ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS mao_obra NUMERIC(12,2) NOT NULL DEFAULT 0`);
+  await pool.query(`ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS desconto NUMERIC(12,2) NOT NULL DEFAULT 0`);
 }
 const required = (obj, fields) => fields.filter(f => obj[f] === undefined || obj[f] === null || String(obj[f]).trim() === '');
 
@@ -103,10 +106,13 @@ app.get('/api/orcamentos',asyncRoute(async(req,res)=>{const {rows}=await pool.qu
 async function saveBudget(req,res,update=false){
   const b=req.body,missing=required(b,budgetFields);if(missing.length)return res.status(400).json({error:'Campos obrigatorios: '+missing.join(', ')});
   const allowed=['Em elaboração','Enviado','Aprovado','Recusado','Vencido'];if(!allowed.includes(b.status))return res.status(400).json({error:'Status do orçamento inválido.'});
-  const value=Number(b.valor);if(!Number.isFinite(value)||value<0)return res.status(400).json({error:'Valor do orçamento inválido.'});
-  const vals=[b.cliente,b.endereco,b.telefone||null,b.email,b.tipo_servico,b.local_pintura,b.descricao||null,value,b.condicao_pagamento||null,b.observacao||null,b.status,b.data_orcamento,b.validade||null];
-  if(update){vals.push(req.params.id);const r=await pool.query(`UPDATE orcamentos SET cliente=$1,endereco=$2,telefone=$3,email=$4,tipo_servico=$5,local_pintura=$6,descricao=$7,valor=$8,condicao_pagamento=$9,observacao=$10,status=$11,data_orcamento=$12,validade=$13,atualizado_em=NOW() WHERE id=$14`,vals);if(!r.rowCount)return res.status(404).json({error:'Orçamento não encontrado.'});return res.json({ok:true});}
-  const {rows}=await pool.query(`INSERT INTO orcamentos(cliente,endereco,telefone,email,tipo_servico,local_pintura,descricao,valor,condicao_pagamento,observacao,status,data_orcamento,validade) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING id`,vals);res.status(201).json(rows[0]);
+  const materials=Array.isArray(b.materiais)?b.materiais.map(m=>({descricao:String(m.descricao||'').trim(),marca:String(m.marca||'').trim(),unidade:String(m.unidade||'Unidade').trim(),quantidade:Number(m.quantidade),valor_unitario:Number(m.valor_unitario)})).filter(m=>m.descricao):[];
+  if(materials.some(m=>!Number.isFinite(m.quantidade)||m.quantidade<=0||!Number.isFinite(m.valor_unitario)||m.valor_unitario<0))return res.status(400).json({error:'Verifique a quantidade e o valor dos materiais.'});
+  const labor=Number(b.mao_obra||0),discount=Number(b.desconto||0),materialTotal=materials.reduce((a,m)=>a+m.quantidade*m.valor_unitario,0),value=Math.max(0,materialTotal+labor-discount);
+  if(!Number.isFinite(labor)||labor<0||!Number.isFinite(discount)||discount<0)return res.status(400).json({error:'Mão de obra ou desconto inválido.'});
+  const vals=[b.cliente,b.endereco,b.telefone||null,b.email,b.tipo_servico,b.local_pintura,b.descricao||null,value,b.condicao_pagamento||null,b.observacao||null,b.status,b.data_orcamento,b.validade||null,JSON.stringify(materials),labor,discount];
+  if(update){vals.push(req.params.id);const r=await pool.query(`UPDATE orcamentos SET cliente=$1,endereco=$2,telefone=$3,email=$4,tipo_servico=$5,local_pintura=$6,descricao=$7,valor=$8,condicao_pagamento=$9,observacao=$10,status=$11,data_orcamento=$12,validade=$13,materiais=$14::jsonb,mao_obra=$15,desconto=$16,atualizado_em=NOW() WHERE id=$17`,vals);if(!r.rowCount)return res.status(404).json({error:'Orçamento não encontrado.'});return res.json({ok:true});}
+  const {rows}=await pool.query(`INSERT INTO orcamentos(cliente,endereco,telefone,email,tipo_servico,local_pintura,descricao,valor,condicao_pagamento,observacao,status,data_orcamento,validade,materiais,mao_obra,desconto) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14::jsonb,$15,$16) RETURNING id`,vals);res.status(201).json(rows[0]);
 }
 app.post('/api/orcamentos',asyncRoute((req,res)=>saveBudget(req,res)));
 app.put('/api/orcamentos/:id',asyncRoute((req,res)=>saveBudget(req,res,true)));
@@ -121,8 +127,10 @@ app.get('/api/orcamentos/:id/pdf',asyncRoute(async(req,res)=>{
   doc.moveTo(48,184).lineTo(547,184).strokeColor('#CBD5E1').stroke();doc.fillColor('#17253A').fontSize(13).text('DADOS DO CLIENTE',48,202);
   doc.fontSize(10).fillColor('#334155').text(`Cliente: ${o.cliente}`,48,228).text(`Endereço: ${o.endereco}`,48,245,{width:499}).text(`Telefone: ${o.telefone||'Não informado'}`,48,276).text(`E-mail: ${o.email}`,285,276);
   doc.fillColor('#17253A').fontSize(13).text('DETALHES DO SERVIÇO',48,309);doc.fontSize(10).fillColor('#334155').text(`Tipo de serviço: ${o.tipo_servico}`,48,335).text(`Local da pintura: ${o.local_pintura}`,285,335).text('Descrição:',48,360).text(o.descricao||'Não informada.',48,377,{width:499});
-  let y=Math.max(doc.y+20,440);doc.roundedRect(48,y,499,58,8).fill('#F1F5F9');doc.fillColor('#475569').fontSize(10).text('VALOR TOTAL DO SERVIÇO',65,y+13).fillColor('#15803D').fontSize(20).text(brl(o.valor),65,y+29);
-  y+=82;doc.fillColor('#17253A').fontSize(12).text('Condição de pagamento',48,y).fontSize(10).fillColor('#334155').text(o.condicao_pagamento||'A combinar.',48,y+20,{width:499});y=doc.y+18;doc.fillColor('#17253A').fontSize(12).text('Observações',48,y).fontSize(10).fillColor('#334155').text(o.observacao||'Nenhuma observação adicional.',48,y+20,{width:499});
+  let y=Math.max(doc.y+20,430);const materials=Array.isArray(o.materiais)?o.materiais:[];
+  if(materials.length){doc.fillColor('#17253A').fontSize(13).text('MATERIAIS',48,y);y+=22;doc.fontSize(9).fillColor('#475569').text('Material / Marca',48,y).text('Qtd.',330,y).text('Unitário',390,y).text('Total',475,y);y+=15;doc.moveTo(48,y).lineTo(547,y).strokeColor('#CBD5E1').stroke();y+=7;for(const m of materials){if(y>690){doc.addPage();y=55;}const total=Number(m.quantidade||0)*Number(m.valor_unitario||0);doc.fillColor('#334155').fontSize(9).text(`${m.descricao}${m.marca?' • '+m.marca:''}`,48,y,{width:270}).text(`${m.quantidade} ${m.unidade||''}`,330,y,{width:55}).text(brl(m.valor_unitario),390,y,{width:75}).text(brl(total),475,y,{width:72,align:'right'});y=Math.max(doc.y+8,y+18);}}
+  const materialTotal=materials.reduce((a,m)=>a+Number(m.quantidade||0)*Number(m.valor_unitario||0),0);if(y>650){doc.addPage();y=55;}doc.roundedRect(48,y,499,86,8).fill('#F1F5F9');doc.fillColor('#475569').fontSize(9).text(`Materiais: ${brl(materialTotal)}`,65,y+12).text(`Mão de obra: ${brl(o.mao_obra)}`,65,y+29).text(`Desconto: ${brl(o.desconto)}`,285,y+29).fillColor('#15803D').fontSize(18).text(`TOTAL: ${brl(o.valor)}`,65,y+51);
+  y+=105;doc.fillColor('#17253A').fontSize(12).text('Condição de pagamento',48,y).fontSize(10).fillColor('#334155').text(o.condicao_pagamento||'A combinar.',48,y+20,{width:499});y=doc.y+18;doc.fillColor('#17253A').fontSize(12).text('Observações',48,y).fontSize(10).fillColor('#334155').text(o.observacao||'Nenhuma observação adicional.',48,y+20,{width:499});
   doc.fontSize(9).fillColor('#64748B').text('Johnson Pinturas • Criado por Cristiane Sanchez da Silva de Jesus',48,780,{width:499,align:'center'});doc.end();
 }));
 
